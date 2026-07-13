@@ -85,14 +85,13 @@ pipeline {
 }
 
         stage('Deploy') {
-            steps {
-                echo 'Deploying application...'
-                sh '''
-                docker compose down || true
-                docker compose up -d --build
-                '''
-            }
-        }
+    steps {
+        echo 'Deploying application...'
+        sh 'docker compose down || true'
+        sh 'docker compose pull'
+        sh 'docker compose up -d'
+    }
+}
     }
 
     post {
