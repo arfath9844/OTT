@@ -38,7 +38,7 @@ services:
       DB_NAME: ottdb
       DB_USERNAME: ottuser
       DB_PASSWORD: ottpass
-      SERVER_PORT: 8087
+      SERVER_PORT: 8080
     ports:
       - "8087:8087"
     networks:
