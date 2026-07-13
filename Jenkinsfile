@@ -52,10 +52,10 @@ pipeline {
                 sh 'mvn -B package -DskipTests'
             }
             post {
-                success {
-                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-                }
-            }
+    always {
+        junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+    }
+}
         }
 
         stage('Docker Build') {
