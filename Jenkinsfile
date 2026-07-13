@@ -84,14 +84,15 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed. Check the logs above.'
-        }
-        always {
-            sh 'docker logout || true'
-        }
+    success {
+        echo 'Pipeline completed successfully!'
+    }
+
+    failure {
+        echo 'Pipeline failed. Check the logs above.'
+    }
+
+    always {
+        echo 'Pipeline finished.'
     }
 }
