@@ -2,15 +2,13 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven3'   // Name must match a Maven installation configured in Jenkins > Global Tool Configuration
-        jdk 'jdk17'      // Name must match a JDK installation configured in Jenkins > Global Tool Configuration
+        maven 'maven3'
+        jdk 'jdk17'
     }
 
     environment {
-        // Change these to match your own Docker Hub / registry account
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials') // Jenkins credential ID (username/password)
-        DOCKER_IMAGE           = "arfath9844/ott-platform"
-        IMAGE_TAG              = "${env.BUILD_NUMBER}"
+        DOCKER_IMAGE = "arfath9844/ott-platform"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     options {
@@ -29,71 +27,87 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Building with Maven...'
-                sh 'mvn -B clean compile'
+                echo 'Compiling application...'
+                sh 'mvn clean compile'
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running unit tests...'
-                sh 'mvn -B test'
+                echo 'Running tests...'
+                sh 'mvn test'
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                 }
             }
         }
 
         stage('Package') {
             steps {
-                echo 'Packaging application as JAR...'
-                sh 'mvn -B package -DskipTests'
+                echo 'Packaging application...'
+                sh 'mvn package -DskipTests'
             }
             post {
-    always {
-        junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-    }
-}
+                success {
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                }
+            }
         }
 
         stage('Docker Build') {
             steps {
                 echo 'Building Docker image...'
-                sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -t ${DOCKER_IMAGE}:latest ."
+                sh """
+                    docker build \
+                    -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
+                    -t ${DOCKER_IMAGE}:latest .
+                """
             }
         }
 
         stage('Docker Push') {
             steps {
-                echo 'Pushing Docker image to registry...'
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                sh "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                sh "docker push ${DOCKER_IMAGE}:latest"
+                echo 'Logging into Docker Hub...'
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    docker push '"${DOCKER_IMAGE}:${IMAGE_TAG}"'
+                    docker push '"${DOCKER_IMAGE}:latest"'
+                    docker logout
+                    '''
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                echo 'Deploying with docker-compose...'
-                sh 'docker compose down || true'
-                sh 'docker compose up -d --build'
+                echo 'Deploying application...'
+                sh '''
+                docker-compose down || true
+                docker-compose up -d --build
+                '''
             }
         }
     }
 
     post {
-    success {
-        echo 'Pipeline completed successfully!'
-    }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
 
-    failure {
-        echo 'Pipeline failed. Check the logs above.'
-    }
+        failure {
+            echo 'Pipeline failed. Check the logs above.'
+        }
 
-    always {
-        echo 'Pipeline finished.'
+        always {
+            echo 'Pipeline execution finished.'
+        }
     }
-}
 }
